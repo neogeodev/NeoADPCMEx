@@ -1,6 +1,7 @@
+# V ROM object with raw and decoded PCM buffers
+# Decoding code from MAME
 
 class Vfile():
-	# 18500Hz
 	def __init__(self, filepath):
 		step_size = [
 			 16,  17,   19,   21,   23,   25,   28,
@@ -13,11 +14,12 @@ class Vfile():
 		]
 		self.step_a_adj = [ -1, -1, -1, -1, 2, 5, 7, 9 ]
 		self.step_b_adj = [ 57, 57, 57, 57, 77, 102, 128, 153 ]
-		
-		# Precalc table init
+
+		# Precalc ADPCM-A table
+		# For each of the 49 steps, compute the delta value represented by each nibble
 		self.jedi_table = 16 * 49 * [0]
-		for step in range (0, 49):
-			for nib in range (0, 16):
+		for step in range(49):
+			for nib in range(16):
 				value = int((2 * (nib & 7) + 1) * step_size[step] / 8)
 				self.jedi_table[step * 16 + nib] = -value if (nib & 8) else value
 		#print(jedi_table)
@@ -29,7 +31,7 @@ class Vfile():
 		self.raw_size_bytes = len(self.raw_data)
 		self.raw_size_blocks = self.raw_size_bytes // 256	# YM2610 ADPCM blocks
 		self.pcm_size = self.raw_size_bytes * 2				# Two PCM samples for one ADPCM byte containing 2 codes
-		self.pcm_data = bytearray(self.pcm_size)
+		self.pcm_data = self.pcm_size * [0]
 
 		self.curType = 0
 		self.resetState()
@@ -49,14 +51,8 @@ class Vfile():
 			self.decstep = 0
 		if (self.decstep > 48):
 			self.decstep = 48
-	
-		ret = (self.acc >> 4) + 128
-		if ret > 255:
-			ret = 255
-		elif ret < 0:
-			ret = 0
-	
-		return ret	# Returns unsigned byte sample
+
+		return self.acc << 4	# Returns s16 sample
 
 	def adpcmBDec(self, nibble):
 		delta = ((2 * (nibble & 7) + 1) * self.adpcmb_step) >> 3
@@ -75,14 +71,8 @@ class Vfile():
 			self.adpcmb_step = 127
 		if (self.adpcmb_step > 24576):	# STEP_MAX
 			self.adpcmb_step = 24576
-	
-		ret = (self.acc >> 8) + 128
-		if ret > 255:
-			ret = 255
-		elif ret < 0:
-			ret = 0
-	
-		return ret	# Returns unsigned byte sample
+
+		return self.acc		# Returns s16 sample
 
 	# Get reset index from block number
 	def findReset(self, blockNumber):
@@ -163,7 +153,7 @@ class Vfile():
 		i = startBlock << 8		# ADPCM data position
 		j = i * 2				# PCM data position
 		for block in range(startBlock, endBlock):
-			found = self.findReset(block)	# This could be simplified since resets are sorted ?
+			found = self.findReset(block)	# This could be simplified since resets are now sorted ?
 			if found != None:
 				self.curType = self.resets[found][1]
 				self.resetState()

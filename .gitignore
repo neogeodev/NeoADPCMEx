@@ -1,2 +1,3 @@
 *.raw
 *.wav
+__pycache__/*

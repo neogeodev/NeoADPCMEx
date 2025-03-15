@@ -41,9 +41,6 @@ class waveCanvas(QWidget):
 			self.repaint()
 
 	def setHighlight(self, highlight):
-		#if cursor > 0 and cursor < self.vfile.pcm_size:
-		#	self.cursor = cursor
-		#	self.repaint()
 		self.highlight = highlight
 		self.repaint()
 
@@ -103,7 +100,8 @@ class waveCanvas(QWidget):
 		# Widget size
 		width = self.size().width()
 		height = self.size().height()
-		vRatio = height / 255.0	# Depends on PCM data format
+		center = height // 2
+		vRatio = height / 65535.0	# Depends on PCM data format
 
 		# One entry for each column (x pixel)
 		if end == 0:
@@ -118,8 +116,8 @@ class waveCanvas(QWidget):
 			if ((colStart >= start and colStart < end) or
 				(colEnd >= start and colEnd < end)):
 				# Find min and max values in range of samples covered by one pixel
-				rangeMin = 255
-				rangeMax = 0
+				rangeMin = 32767
+				rangeMax = -32768
 				if colStart < 0:	# Shouldn't happen
 					rangeMin = 0
 					rangeMax = 0
@@ -130,11 +128,10 @@ class waveCanvas(QWidget):
 							rangeMax = value
 						if value < rangeMin:
 							rangeMin = value
-				# If signed sample: must do -127 ~ 128 to 255 ~ 0
 				rangeMin *= vRatio
 				rangeMax *= vRatio
 				# waveformData is a list of [min, max, mean] adjusted to widget height for fast plotting
-				self.waveformData[column] = [height - rangeMin, height - rangeMax, height - ((rangeMin + rangeMax) / 2)]
+				self.waveformData[column] = [center - rangeMin, center - rangeMax, center - ((rangeMin + rangeMax) / 2)]
 			colStart += self.XDelta
 		#print("genWaveform:", time.time() - debug)	# PROFILING
 		self.repaint()
